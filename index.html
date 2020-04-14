@@ -1,0 +1,81 @@
+<html>
+    <head>
+        
+        <meta charset="utf-8" />
+        <title>Tomasulo</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        
+        <style>
+         body, button, select, input, a, textarea {
+             color:       #ffffff;
+             text-shadow: 0px 4px 8px rgba(0,0,0,0.5);
+             font-family: monospace;
+         }
+
+         body, button, select, input, textarea {
+             background-color: #000000;
+         }
+         
+         hr {
+             display:    block;
+             height:     1px;
+             border:     0;
+             border-top: 0.3em solid white;
+             margin:     1em 0;
+             padding:    0;
+         }
+        </style>
+        
+        <script src="tomasulo.js"></script>
+    </head>
+    <body>
+        <center>
+            <div style="max-width:700px">
+                <h1>Tomasulo Simulator</h1>
+                <hr>
+                By
+                <a href="https://naheel-azawy.github.io">Naheel</a>
+                - Source at <a href="https://github.com/Naheel-Azawy/tomasulo-sim">GitHub</a>
+            </div>
+        </center>
+
+        <button onclick="run()">RUN</button>
+        <br>
+
+        <h2>Assembly source</h2>
+        <textarea id="src" rows="20" cols="40" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+LD    F6  34+ R2
+LD    F2  45+ R3
+MULTD F0  F2  F4
+SUBD  F8  F6  F2
+DIVD  F10 F0  F6
+ADDD  F6  F8  F2
+        </textarea>
+        <br>
+
+        <h2>Data initialization</h2>
+        <textarea id="data" rows="10" cols="40" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+M[34] = 666
+M[45] = 555
+R.F4  = 2
+instruction_set.DIVD.clks = 30
+        </textarea>
+        <br>
+
+        <h2>Output</h2>
+        <div id="out" style="white-space:pre"></div>
+        
+        <script>
+         function run() {
+             let out = tomasulo(
+                 document.getElementById("src").value,
+                 (M, R, instruction_set) => {
+                     eval(document.getElementById("data").value)
+                 }
+             );
+             document.getElementById("out").innerText = out;
+         }
+         run();
+        </script>
+    </body>
+</html>
