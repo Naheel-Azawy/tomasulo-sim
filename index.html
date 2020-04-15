@@ -39,23 +39,17 @@
 
                 <h2>Source <button onclick="run()">RUN</button></h2>
                 <textarea id="src" rows="20" cols="50" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
-LD    F0  0   R1
-MULTD F4  F0  F2
-SD    F4  0   R1
-SUBI  R1  R1  #8
-BNE   R1  R0   0
-
-INIT:
-R.R1 = 80
-IS.MULTD.clks = 4
-// 1st load takes 8 clocks (L1 cache miss) and
-// 2nd load takes 1 clock (hit)
-IS.LD.clks = [8, 1]
                 </textarea>
                 <br>
 
-                <h2>Output</h2>
+                <br>
                 <center>
+                    <table>
+                        <td>Load example: </td>
+                        <td><div id="examples-div"></div></td>
+                    </table>
+
+                    <h2>Output</h2>
                     <table>
                         <td><button onclick="prev()">&lt PREV</button></td>
                         <td><input id="ck" type="text" style="text-align:center" value="1"></td>
@@ -74,6 +68,7 @@ IS.LD.clks = [8, 1]
 
         <script>
          let tomasulo_out = [];
+
          function show_ck(ck) {
              if (String(ck).toLowerCase() == "all") {
                  document.getElementById("ck").value = "ALL";
@@ -105,18 +100,30 @@ IS.LD.clks = [8, 1]
              show_ck(1);
          }
 
-         document.getElementById("ck").addEventListener('keyup', event => {
-             if (event.keyCode === 13) {
-                 show_ck(document.getElementById("ck").value)
-             }
-         });
-
-         document.onkeydown = event => {
+         document.getElementById("ck").addEventListener('keydown', event => {
              switch (event.key) {
                  case "ArrowRight": next(); break;
                  case "ArrowLeft":  prev(); break;
+                 case "Enter":
+                     show_ck(document.getElementById("ck").value);
+                     break;
              }
-         };
+         });
+
+         function example() {
+             document.getElementById("src").value =
+                 tomasulo_examples[document.getElementById("examples-sel").value];
+             run();
+         }
+
+         let sel = '<select id="examples-sel" onchange="example()">';
+         for (let ex in tomasulo_examples) {
+             sel += `<option value="${ex}">${ex}</option>`;
+         }
+         sel += "</select>";
+         document.getElementById("examples-div").innerHTML = sel;
+         document.getElementById("examples-sel").value = "loop";
+         example();
 
          run();
         </script>
