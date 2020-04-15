@@ -442,22 +442,6 @@ function tomasulo(code, out_arr) {
             write(inst);
         }
 
-        /*// write result // TODO: sure?
-        write_execs: for (let i in executed_insts) {
-            let inst = executed_insts[i];
-            // do not execute instruction that can override previous ones dest's
-            for (let station2 in reservation_station) {
-                if (reservation_station[station2].busy &&
-                    reservation_station[station2].time != 0 &&
-                    station2 != inst.station &&
-                    reservation_station[station2].inst.d == inst.d) {
-                    continue write_execs;
-                }
-            }
-            executed_insts.splice(i, 1);
-            write(inst);
-        }*/
-
         // execute
         for (let station in reservation_station) {
             if (reservation_station[station].busy &&
@@ -494,7 +478,6 @@ function tomasulo(code, out_arr) {
         // start the timer for a station once:
         // (1) both operands are ready
         // (2) or it's just a load so no need to wait for operands
-        // (3) wait for other instructions writing to the same dest TODO: sure?
         timer_check: for (let station in reservation_station) {
             if (reservation_station[station].busy &&
                 reservation_station[station].time == 0
@@ -509,15 +492,6 @@ function tomasulo(code, out_arr) {
                 if (station.startsWith("load") || // (2)
                     (reservation_station[station].vj !== '' && // (1)
                      reservation_station[station].vk !== '')) {
-                    /*for (let station2 in reservation_station) { // (3)
-                        if (reservation_station[station2].busy &&
-                            reservation_station[station2].time != 0 &&
-                            station2 != station &&
-                            reservation_station[station2].inst.d ==
-                            reservation_station[station].inst.d) {
-                            continue timer_check;
-                        }
-                    }*/
                     reservation_station[station].time =
                         get_clks(reservation_station[station].inst);
                     reservation_station[station].started = true;
