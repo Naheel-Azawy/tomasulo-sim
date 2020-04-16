@@ -1,4 +1,4 @@
-function tomasulo(code, out_arr) {
+function tomasulo_with_errors(code, out_arr) {
 
     // In case of errors, halt after this many clocks
     const MAX_CLOCKS = 1000;
@@ -12,7 +12,7 @@ function tomasulo(code, out_arr) {
     let data_init_str = "";
     if (code.length == 2) { // data init block
         data_init_str = code[1].trim();
-        data_init = (M, R, IS) => eval(data_init_str);
+        data_init = (M, R, OPT) => eval(data_init_str);
     }
     code = code[0].trim();
 
@@ -104,18 +104,11 @@ function tomasulo(code, out_arr) {
     // tomasulto stuff
     let inst_status    = {}; // { "i_clock": { inst, issue, exec, write }}
     let reg_res_status = {}; // { reg: station }
-    let reservation_station = {
-        load1:  { busy: false, time: 0, inst: {op: ''}, address: 0 },
-        load2:  { busy: false, time: 0, inst: {op: ''}, address: 0 },
-        load3:  { busy: false, time: 0, inst: {op: ''}, address: 0 },
-        store1: { busy: false, time: 0, inst: {op: ''}, address: 0, vj: '', qj: '' },
-        store2: { busy: false, time: 0, inst: {op: ''}, address: 0, vj: '', qj: '' },
-        store3: { busy: false, time: 0, inst: {op: ''}, address: 0, vj: '', qj: '' },
-        add1:   { busy: false, time: 0, inst: {op: ''}, vj: '', vk: '', qj: '', qk: '' },
-        add2:   { busy: false, time: 0, inst: {op: ''}, vj: '', vk: '', qj: '', qk: '' },
-        add3:   { busy: false, time: 0, inst: {op: ''}, vj: '', vk: '', qj: '', qk: '' },
-        mult1:  { busy: false, time: 0, inst: {op: ''}, vj: '', vk: '', qj: '', qk: '' },
-        mult2:  { busy: false, time: 0, inst: {op: ''}, vj: '', vk: '', qj: '', qk: '' }
+    let reservation_station = { // filled later
+        stations: [ "load1", "load2", "load3",
+                    "store1", "store2", "store3",
+                    "add1", "add2", "add3",
+                    "mult1", "mult2" ]
     };
 
     function push_inst(inst) {
@@ -126,7 +119,12 @@ function tomasulo(code, out_arr) {
 
     // pretty strings
 
-    function s(str="", len=6) {
+    function s(str="", len=7) {
+        if (str == undefined) {
+            str = "-";
+        } else if (str !== '' && Number(str) == str) {
+            str = +Number(str).toFixed(2);
+        }
         str += "";
         if (str.length < len) {
             str += " ".repeat(len - str.length);
@@ -160,19 +158,17 @@ function tomasulo(code, out_arr) {
         let hdr_str = "| " + s("Instruction", 17) + " | " +
             s("Issue") + " | " +
             s("Exec") + " | " +
-            s("Write") + " | ";
+            s("Write") + " | " +
+            s("Station") + " |";
         let line = line_str(hdr_str);
         res += line + "\n" + hdr_str + "\n" + line + "\n";
         let z = s => s == 0 ? " " : s;
         for (let i in inst_status) {
-            res += "| " + s(inst_str(inst_status[i].inst), 17) + " | ";
-            if (inst_status[i] != undefined) {
-                res += s(z(inst_status[i].issue)) + " | " +
-                    s(z(inst_status[i].exec)) + " | " +
-                    s(z(inst_status[i].write)) + " |\n";
-            } else {
-                res += (s() + " | ").repeat(3) + "\n";
-            }
+            res += "| " + s(inst_str(inst_status[i].inst), 17) + " | " +
+                s(z(inst_status[i].issue)) + " | " +
+                s(z(inst_status[i].exec)) + " | " +
+                s(z(inst_status[i].write)) + " | " +
+                s(z(inst_status[i].inst.station)) + " |\n";
         }
         return res + line;
     }
@@ -189,27 +185,13 @@ function tomasulo(code, out_arr) {
         for (let station in reservation_station) {
             res += "| " + s(station) + " | " +
                 s(reservation_station[station].busy ? "Yes" : "No") + " | " +
-                s(reservation_station[station].time) + " | ";
-            if (reservation_station[station].address == undefined) {
-                res += s("-") + " | " + // address
-                    s(reservation_station[station].inst.op) + " | " +
-                    s(reservation_station[station].vj) + " | " +
-                    s(reservation_station[station].vk) + " | " +
-                    s(reservation_station[station].qj) + " | " +
-                    s(reservation_station[station].qk) + " |";
-            } else {
-                res += s(reservation_station[station].address) + " | ";
-                if (station.startsWith("store")) {
-                    res += s("-") + " | " + // op
-                        s(reservation_station[station].vj) + " | " +
-                        s("-") + " | " + // vk
-                        s(reservation_station[station].qj) + " | " +
-                        s("-") + " |";
-                } else {
-                    res += (s("-") + " | ").repeat(5);
-                }
-            }
-            res += "\n";
+                s(reservation_station[station].time) + " | " +
+                s(reservation_station[station].address) + " | " +
+                s(reservation_station[station].inst.op) + " | " +
+                s(reservation_station[station].vj) + " | " +
+                s(reservation_station[station].vk) + " | " +
+                s(reservation_station[station].qj) + " | " +
+                s(reservation_station[station].qk) + " |\n";
         }
         return res + line;
     }
@@ -231,7 +213,7 @@ function tomasulo(code, out_arr) {
     }
 
     function reg_res_status_str() {
-        let res = "** Register result status\n";
+        let res = "** Register result status (Qi)\n";
         let set = {};
         for (let r in regs) {
             if (r.startsWith("F")) {
@@ -284,15 +266,17 @@ function tomasulo(code, out_arr) {
                     inst.station = station;
                     reservation_station[station].busy = true;
                     reservation_station[station].inst = inst;
-                    if (reservation_station[station].address != undefined) { // store or load
-                        reservation_station[station].address = inst.j + regs[inst.k];
+                    if (station.startsWith("load") || station.startsWith("store")) { // store or load
+                        reservation_station[station].vj = inst.j + regs[inst.k];
+                        reservation_station[station].address = reservation_station[station].vj;
+
                         if (station.startsWith("store")) { // store only
-                            let r = inst.d;
+                            let r = inst.d; // d is needed to be stored
                             if (reg_res_status[r] != undefined &&
                                 isNaN(reg_res_status[r])) { // needs computation
-                                reservation_station[station].qj = reg_res_status[r];
+                                reservation_station[station].qk = reg_res_status[r];
                             } else { // value ready
-                                reservation_station[station].vj = regs[r];
+                                reservation_station[station].vk = regs[r];
                             }
                         }
                     } else { // other instructions
@@ -352,8 +336,8 @@ function tomasulo(code, out_arr) {
             }
             case "store": {
                 // exec won't be called before vj and vk are ready
-                let j = reservation_station[inst.station].vj;
-                mem[reservation_station[inst.station].address] = j;
+                let k = reservation_station[inst.station].vk;
+                mem[reservation_station[inst.station].address] = k;
                 break;
             }
             default: {
@@ -384,18 +368,13 @@ function tomasulo(code, out_arr) {
         // clean the reservation station
         reservation_station[inst.station].busy = false;
         reservation_station[inst.station].time = 0;
-            reservation_station[inst.station].inst = {op: ''};
+        reservation_station[inst.station].inst = {op: ''};
+        reservation_station[inst.station].vj = '';
+        reservation_station[inst.station].vk = '';
+        reservation_station[inst.station].qj = '';
+        reservation_station[inst.station].qk = '';
         if (reservation_station[inst.station].address != undefined) {
             reservation_station[inst.station].address = 0;
-            if (inst.station.startsWith("store")) {
-                reservation_station[inst.station].vj = '';
-                reservation_station[inst.station].qj = '';
-            }
-        } else {
-            reservation_station[inst.station].vj = '';
-            reservation_station[inst.station].vk = '';
-            reservation_station[inst.station].qj = '';
-            reservation_station[inst.station].qk = '';
         }
 
         // update register result status
@@ -420,13 +399,34 @@ function tomasulo(code, out_arr) {
 
     // init data provided by the user
     if (data_init) {
-        data_init(mem, regs, inst_set);
+        data_init(mem, regs, {
+            IS: inst_set,
+            RS: reservation_station
+        });
     }
+
+    // build the reservation stations
+    for (let station of reservation_station.stations) {
+        reservation_station[station] =
+                { busy: false, time: 0, inst: {op: ''}, vj: '', vk: '', qj: '', qk: '' };
+        if (station.startsWith("load") || station.startsWith("store")) {
+            reservation_station[station].address = 0;
+        }
+    }
+    delete reservation_station.stations;
+
+    // This part is questionable, is it possible to do concurrent
+    // loads and stores? If yes then keep the queue undefined.
+    // Otherwise define it to enable checking.
+    // Note that loading from an address that a store is still
+    // working on is handled separately below
+    let load_store_queue; // = [];
 
     // start
     let out = [];
     let executed_insts = [];
     for (;;) {
+        let out_str = "";
         ++clock;
 
         // update times in reservation stations
@@ -440,6 +440,13 @@ function tomasulo(code, out_arr) {
         while (executed_insts.length != 0) {
             let inst = executed_insts.shift();
             write(inst);
+
+            if (load_store_queue != undefined) {
+                if (get_type(inst) == "load" || get_type(inst) == "store") {
+                    let i = load_store_queue.shift();
+                    out_str += `shifted ${i}\n[${load_store_queue}]\n`;
+                }
+            }
         }
 
         // execute
@@ -447,8 +454,9 @@ function tomasulo(code, out_arr) {
             if (reservation_station[station].busy &&
                 reservation_station[station].time == 0 &&
                 reservation_station[station].started &&
-                reservation_station[station].vj !== '' &&
-                reservation_station[station].vk !== '') {
+                ((station.startsWith("load") || station.startsWith("store")) ||
+                 reservation_station[station].vj !== '' &&
+                 reservation_station[station].vk !== '')) {
 
                 exec(reservation_station[station].inst);
                 reservation_station[station].started = undefined;
@@ -456,7 +464,7 @@ function tomasulo(code, out_arr) {
             }
         }
 
-        // for printing
+        // for printing, before it changes
         let cur_pc = PC;
 
         // issue (or execute if basic instruction)
@@ -471,6 +479,14 @@ function tomasulo(code, out_arr) {
             } else {
                 if (issue(inst)) {
                     ++PC;
+                }
+            }
+
+            // push to the load-store queue
+            if (load_store_queue != undefined) {
+                if (get_type(inst) == "load" || get_type(inst) == "store") {
+                    load_store_queue.push(inst.i);
+                    out_str += `pushed ${inst.i}\n[${load_store_queue}]\n`;
                 }
             }
         }
@@ -489,9 +505,45 @@ function tomasulo(code, out_arr) {
                         continue timer_check;
                     }
                 }
+
+                // avoids load when an older store on the same address is still not done
+                if (station.startsWith("load")) {
+                    for (let station2 in reservation_station) {
+                        if (reservation_station[station2].inst.i != undefined &&
+                            station2.startsWith("store")) {
+                            if (reservation_station[station2].busy &&
+                                inst_status[reservation_station[station2].inst.i].write == 0 &&
+                                inst_status[reservation_station[station2].inst.i].issue <
+                                inst_status[reservation_station[station].inst.i].issue&&
+                                reservation_station[station2].address ==
+                                reservation_station[station].address) {
+
+                                continue timer_check;
+                            }
+                        }
+                    }
+                }
+
+                // if not the head of the load-store queue
+                if (load_store_queue != undefined) {
+                    if (station.startsWith("load") || station.startsWith("store")) {
+                        out_str += `>>>>>>[${load_store_queue}]\n`;
+                        out_str += reservation_station[station].inst.i + "\n" + station + "\n";
+                    }
+                    if (load_store_queue.length != 1 &&
+                        (station.startsWith("load") || station.startsWith("store")) &&
+                        reservation_station[station].inst.i !=
+                        load_store_queue[0]) {
+                        continue;
+                    }
+                }
+
                 if (station.startsWith("load") || // (2)
+                    (station.startsWith("store") &&
+                     reservation_station[station].vk !== '') ||
                     (reservation_station[station].vj !== '' && // (1)
                      reservation_station[station].vk !== '')) {
+
                     reservation_station[station].time =
                         get_clks(reservation_station[station].inst);
                     reservation_station[station].started = true;
@@ -500,7 +552,7 @@ function tomasulo(code, out_arr) {
         }
 
         // pretty print
-        out.push(all_str(cur_pc));
+        out.push(out_str + all_str(cur_pc));
 
         // check if done executing
         let all_written = true;
@@ -529,7 +581,45 @@ function tomasulo(code, out_arr) {
     }
 }
 
+function tomasulo(code, out_arr) {
+    try {
+        return tomasulo_with_errors(code, out_arr);
+    } catch (msg) {
+        return out_arr ? [msg] : msg;
+    }
+}
+
 let tomasulo_examples = {
+    example0: `
+LD    F0  0   R1
+MULTD F0  F0  F2
+SD    F0  0   R1
+SUBI  R5  R5  #8
+BNE   R5  R0   0 // loop
+
+// the "INIT" block can be used optionally
+// to configure the environment
+INIT:
+// initialize registers and memory
+R.R0 = 0
+R.R1 = 1000
+R.R5 = 24
+R.F2 = 1.11723
+M[1000] = 2010
+
+// custom time for instructions
+OPT.IS.MULTD.clks = 1
+// first load takkes 4,
+// the rest 1 clock cycles
+OPT.IS.LD.clks = [4, 1]
+
+// customize reservation stations
+OPT.RS.stations = ["load1", "load2",
+                   "store1", "store2",
+                   "add1", "add2", "add3",
+                   "mult1", "mult2"]
+`,
+
     example1: `
 LD    F6  34+ R2
 LD    F2  45+ R3
@@ -542,6 +632,7 @@ INIT:
 M[34] = 666
 M[45] = 555
 `,
+
     example2: `
 LD    F6  34+ R2
 LD    F2  45+ R3
@@ -557,26 +648,60 @@ M[34] = 666
 M[45] = 555
 R.R5 = 2010
 R.F4 = 2
-IS.DIVD.clks = 30
-`,
-    loop: `
-LD    F0  0   R1
-MULTD F4  F0  F2
-SD    F4  0   R1
-SUBI  R1  R1  #8
-BNE   R1  R0   0
-
-INIT:
-R.R1 = 80
-IS.MULTD.clks = 4
-// 1st load takes 8 clocks (L1 cache miss) and
-// 2nd load takes 1 clock (hit)
-IS.LD.clks = [8, 1]
+OPT.IS.DIVD.clks = 30
 `
 };
 
+// node js interface
 if (typeof(module) != 'undefined') {
     module.exports = tomasulo;
-    console.log(tomasulo(tomasulo_examples.example1));
-    //console.log(tomasulo(tomasulo_examples.loop));
+
+    // if called from command line with a file arg
+    if (process.argv.length >= 2) {
+        const fs = require("fs");
+
+        function help() {
+            console.log("USAGE: node tomasulo.js [OPTIONS]... [FILE]");
+            console.log("The following options are supported:");
+            console.log("  -e <EXAMPLE>   run one of the existing examples");
+            console.log("  -h, --help     display this help and exit");
+            console.log("Available examples:");
+            for (let e in tomasulo_examples) {
+                console.log("  " + e);
+            }
+        }
+
+        switch (process.argv[2]) {
+        case "-h":
+        case "--help":
+            help();
+            break;
+        case "-e":
+            if (process.argv.length == 4) {
+                let e = process.argv[3];
+                if (e) {
+                    console.log(`* Running example '${e}'`);
+                    console.log("=======================");
+                    console.log(tomasulo_examples[e]);
+                    console.log("=======================\n");
+                    console.log(tomasulo(tomasulo_examples[e]));
+                } else {
+                    console.log(`* ERROR: No example named '${e}' found`);
+                    help();
+                }
+            } else {
+                help();
+            }
+            break;
+        default:
+            if (fs.existsSync(process.argv[2])) {
+                console.log(tomasulo(
+                    fs.readFileSync(process.argv[2]).toString()
+                ));
+            } else {
+                help();
+            }
+        }
+
+    }
 }
