@@ -1,2 +1,12 @@
 * Tomasulo Simulator
-  A simple Tomasulo simulator written in Javascript
+  A simple [[https://en.wikipedia.org/wiki/Tomasulo_algorithm][Tomasulo]] simulator written in Javascript
+
+** Usage
+   Use it from the [[https://naheel-azawy.github.io/tomasulo-sim][web interface]] or the node CLI
+
+   #+BEGIN_SRC shell
+     node tomasulo.js example.asm
+   #+END_SRC
+
+** License
+   GPL3
