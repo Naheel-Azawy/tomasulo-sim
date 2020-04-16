@@ -146,10 +146,12 @@ function tomasulo_with_errors(code, out_arr) {
 
     function code_str(PC) {
         let res = "** Code\n";
+        res += "#+BEGIN_SRC\n";
         for (let i in insts) {
             res += (PC - 1 == i) ? "> " : "  ";
             res += i + " " + inst_str(insts[i]) + "\n";
         }
+        res += "#+END_SRC";
         return res;
     }
 

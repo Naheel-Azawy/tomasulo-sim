@@ -6,6 +6,7 @@ BNE   R1  R0   0
 
 INIT:
 R.R1 = 16
+OPT.IS.LD.clks = 10
 OPT.IS.MULTD.clks = 10
 OPT.RS.stations = ["load1", "load2", "load3",
                    "store1", "store2", "store3",
